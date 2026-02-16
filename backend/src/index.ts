@@ -13,7 +13,14 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'https://fine-entry-475306-b5.web.app',
+    'https://fine-entry-475306-b5.firebaseapp.com',
+  ],
+  credentials: true,
+}));
 app.use(express.json());
 
 // Health Check
