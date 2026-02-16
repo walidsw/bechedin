@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // Using PostgreSQL as per requirement
+  url      = env("DATABASE_URL")
+}
+
+// User Identity and Role Management
+model User {
+  id            String    @id @default(uuid())
+  phoneNumber   String    @unique @map("phone_number")
+  email         String?
+  passwordHash  String    @map("password_hash")
+  nidVerified   Boolean   @default(false) @map("nid_verified")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  roles         UserRole[]
+  listings      Listing[]
+  sentMessages  Message[]
+  escrowAsBuyer EscrowTransaction[] @relation("BuyerEscrow")
+  escrowAsSeller EscrowTransaction[] @relation("SellerEscrow")
+
+  @@map("users")
+}
+
+model Role {
+  id        Int       @id @default(autoincrement())
+  roleName  String    @unique @map("role_name") // e.g. BUYER, SELLER, MODERATOR, ADMIN
+
+  users     UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  userId String @map("user_id")
+  roleId Int    @map("role_id")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+// Administrative Geography
+model Location {
+  id           Int      @id @default(autoincrement())
+  locationType LocationType @map("location_type")
+  nameEn       String   @map("name_en")
+  nameBn       String?  @map("name_bn")
+  parentId     Int?     @map("parent_id")
+
+  parent       Location? @relation("LocationHierarchy", fields: [parentId], references: [id])
+  children     Location[] @relation("LocationHierarchy")
+  listings     Listing[]
+
+  @@map("locations")
+}
+
+enum LocationType {
+  DIVISION
+  DISTRICT
+  UPAZILA
+  CITY_CORPORATION
+}
+
+// Product Listings and Categories
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String
+  parentId Int?      @map("parent_id")
+
+  parent   Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryHierarchy")
+  listings Listing[]
+
+  @@map("categories")
+}
+
+model Listing {
+  id              String   @id @default(uuid())
+  sellerId        String   @map("seller_id")
+  categoryId      Int      @map("category_id")
+  locationId      Int      @map("location_id")
+  title           String
+  description     String
+  priceBdt        Decimal  @map("price_bdt") @db.Decimal(12, 2)
+  attributes      Json     // Dynamic attributes
+  moderationStatus String  @default("PENDING_MODERATION") @map("moderation_status") // PENDING, ACTIVE, REJECTED, SOLD
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  seller          User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  category        Category @relation(fields: [categoryId], references: [id])
+  location        Location @relation(fields: [locationId], references: [id])
+  escrows         EscrowTransaction[]
+  messageThreads  MessageThread[]
+
+  @@map("listings")
+}
+
+// Escrow System
+model EscrowTransaction {
+  id              String   @id @default(uuid())
+  listingId       String   @map("listing_id")
+  buyerId         String   @map("buyer_id")
+  sellerId        String   @map("seller_id")
+  amount          Decimal  @db.Decimal(12, 2)
+  platformFee     Decimal  @map("platform_fee") @db.Decimal(12, 2)
+  status          EscrowStatus @default(INITIALIZED)
+  inspectionEndsAt DateTime? @map("inspection_ends_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  listing         Listing  @relation(fields: [listingId], references: [id])
+  buyer           User     @relation("BuyerEscrow", fields: [buyerId], references: [id])
+  seller          User     @relation("SellerEscrow", fields: [sellerId], references: [id])
+
+  @@map("escrow_transactions")
+}
+
+enum EscrowStatus {
+  INITIALIZED
+  FUNDS_HELD
+  IN_TRANSIT
+  INSPECTING
+  RELEASED
+  DISPUTED
+  REFUNDED
+  CANCELLED
+}
+
+// Messaging System
+model MessageThread {
+  id        String   @id @default(uuid())
+  listingId String   @map("listing_id")
+  buyerId   String   @map("buyer_id")
+  sellerId  String   @map("seller_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  listing   Listing  @relation(fields: [listingId], references: [id])
+  messages  Message[]
+
+  @@map("message_threads")
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  threadId  String   @map("thread_id")
+  senderId  String   @map("sender_id")
+  body      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  thread    MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender    User          @relation(fields: [senderId], references: [id])
+
+  @@map("messages")
+}
