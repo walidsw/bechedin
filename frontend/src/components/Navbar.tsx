@@ -1,10 +1,10 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth-context';
-import { LogOut, Plus, Menu, X } from 'lucide-react';
+import { LogOut, Plus, Menu, X, Shield } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -33,6 +33,11 @@ export default function Navbar() {
 
           {user ? (
             <>
+              {isAdmin && (
+                <Link to="/admin" className="inline-flex items-center gap-1 text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors">
+                  <Shield size={14} /> Admin
+                </Link>
+              )}
               <div className="flex items-center gap-2">
                 {user.photoURL && (
                   <img src={user.photoURL} alt="" className="w-7 h-7 rounded-full" />
@@ -40,6 +45,9 @@ export default function Navbar() {
                 <span className="text-sm font-medium text-gray-700">
                   {user.displayName || user.email}
                 </span>
+                {isAdmin && (
+                  <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">ADMIN</span>
+                )}
               </div>
               <Link
                 to="/post-ad"
@@ -79,28 +87,26 @@ export default function Navbar() {
       {/* Mobile Menu */}
       {mobileOpen && (
         <div className="md:hidden border-t border-gray-100 bg-white px-4 py-3 space-y-2">
-          <Link to="/" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-gray-700">
-            Browse
-          </Link>
+          <Link to="/" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-gray-700">Browse</Link>
           {user ? (
             <>
               <div className="py-2 text-sm font-medium text-gray-700 flex items-center gap-2">
                 {user.photoURL && <img src={user.photoURL} alt="" className="w-6 h-6 rounded-full" />}
                 {user.displayName || user.email}
+                {isAdmin && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">ADMIN</span>}
               </div>
-              <Link to="/post-ad" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-indigo-600">
-                + Post Ad
-              </Link>
+              {isAdmin && (
+                <Link to="/admin" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-amber-600">
+                  ⚡ Admin Panel
+                </Link>
+              )}
+              <Link to="/post-ad" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-indigo-600">+ Post Ad</Link>
               <button onClick={handleLogout} className="block py-2 text-sm text-red-600">Sign Out</button>
             </>
           ) : (
             <>
-              <Link to="/auth" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-gray-700">
-                Sign In
-              </Link>
-              <Link to="/post-ad" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-indigo-600">
-                + Post Ad
-              </Link>
+              <Link to="/auth" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-gray-700">Sign In</Link>
+              <Link to="/post-ad" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-indigo-600">+ Post Ad</Link>
             </>
           )}
         </div>

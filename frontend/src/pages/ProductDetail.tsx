@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../lib/auth-context';
-import { ShieldCheck, MapPin, ArrowLeft, Tag } from 'lucide-react';
+import { ShieldCheck, MapPin, ArrowLeft, Tag, Pencil, Trash2 } from 'lucide-react';
 
 interface ListingData {
   title: string;
@@ -20,9 +20,14 @@ interface ListingData {
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [listing, setListing] = useState<ListingData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+
+  const isOwner = user && listing && user.uid === listing.sellerId;
+  const canManage = isOwner || isAdmin;
 
   useEffect(() => {
     const fetchListing = async () => {
@@ -40,6 +45,18 @@ export default function ProductDetail() {
     };
     fetchListing();
   }, [id]);
+
+  const handleDelete = async () => {
+    if (!id || !confirm('Are you sure you want to delete this listing?')) return;
+    setDeleting(true);
+    try {
+      await deleteDoc(doc(db, 'listings', id));
+      navigate('/');
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete');
+      setDeleting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -120,8 +137,33 @@ export default function ProductDetail() {
             </span>
           </div>
 
+          {/* Action Buttons */}
+          {canManage && (
+            <div className="flex gap-3 mb-4">
+              <Link
+                to={`/edit/${id}`}
+                className="flex-1 inline-flex items-center justify-center gap-2 bg-gray-100 text-gray-700 rounded-xl py-2.5 text-sm font-medium hover:bg-gray-200 transition-colors"
+              >
+                <Pencil size={16} /> Edit
+              </Link>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 inline-flex items-center justify-center gap-2 bg-red-50 text-red-600 rounded-xl py-2.5 text-sm font-medium hover:bg-red-100 transition-colors disabled:opacity-50"
+              >
+                <Trash2 size={16} /> {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          )}
+
+          {isAdmin && !isOwner && (
+            <p className="text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg mb-4 text-center">
+              ⚡ Admin action — this is not your listing
+            </p>
+          )}
+
           {/* Buy Button */}
-          {user && user.uid !== listing.sellerId ? (
+          {user && !isOwner ? (
             <button className="w-full bg-indigo-600 text-white rounded-xl py-3.5 font-medium hover:bg-indigo-700 transition-colors">
               Purchase with Escrow Protection
             </button>
@@ -132,9 +174,7 @@ export default function ProductDetail() {
             >
               Sign in to Purchase
             </Link>
-          ) : (
-            <p className="text-sm text-gray-400 text-center py-3">This is your listing</p>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

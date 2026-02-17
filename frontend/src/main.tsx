@@ -9,6 +9,8 @@ import AuthPage from './pages/AuthPage'
 import ProductDetail from './pages/ProductDetail'
 import EscrowDashboard from './pages/EscrowDashboard'
 import PostAdPage from './pages/PostAdPage'
+import EditListingPage from './pages/EditListingPage'
+import AdminPanel from './pages/AdminPanel'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -21,6 +23,8 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/products/:id" element={<ProductDetail />} />
             <Route path="/escrow/:id" element={<EscrowDashboard />} />
             <Route path="/post-ad" element={<PostAdPage />} />
+            <Route path="/edit/:id" element={<EditListingPage />} />
+            <Route path="/admin" element={<AdminPanel />} />
           </Route>
         </Routes>
       </BrowserRouter>
