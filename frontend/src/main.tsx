@@ -12,6 +12,7 @@ import PostAdPage from './pages/PostAdPage'
 import EditListingPage from './pages/EditListingPage'
 import AdminPanel from './pages/AdminPanel'
 import MyListings from './pages/MyListings'
+import MyOrders from './pages/MyOrders'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -27,6 +28,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/edit/:id" element={<EditListingPage />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/my-listings" element={<MyListings />} />
+            <Route path="/my-orders" element={<MyOrders />} />
           </Route>
         </Routes>
       </BrowserRouter>

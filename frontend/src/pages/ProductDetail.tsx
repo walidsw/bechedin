@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../lib/auth-context';
 import { ShieldCheck, MapPin, ArrowLeft, Tag, Pencil, Trash2 } from 'lucide-react';
@@ -25,6 +25,7 @@ export default function ProductDetail() {
   const [listing, setListing] = useState<ListingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [purchasing, setPurchasing] = useState(false);
 
   const isOwner = user && listing && user.uid === listing.sellerId;
   const canManage = isOwner || isAdmin;
@@ -55,6 +56,32 @@ export default function ProductDetail() {
     } catch (err: any) {
       alert(err.message || 'Failed to delete');
       setDeleting(false);
+    }
+  };
+
+  const handlePurchase = async () => {
+    if (!user || !listing || !id) return;
+    setPurchasing(true);
+    try {
+      const orderRef = await addDoc(collection(db, 'orders'), {
+        listingId: id,
+        listingTitle: listing.title,
+        listingImage: listing.imageUrl,
+        priceBdt: listing.priceBdt,
+        status: 'pending',
+        buyerId: user.uid,
+        buyerName: user.displayName || user.email,
+        buyerPhoto: user.photoURL || '',
+        sellerId: listing.sellerId,
+        sellerName: listing.sellerName,
+        sellerPhoto: listing.sellerPhoto,
+        createdAt: serverTimestamp(),
+      });
+      navigate(`/escrow/${orderRef.id}`);
+    } catch (err: any) {
+      alert(err.message || 'Failed to initiate purchase');
+    } finally {
+      setPurchasing(false);
     }
   };
 
@@ -137,7 +164,7 @@ export default function ProductDetail() {
             </span>
           </div>
 
-          {/* Action Buttons */}
+          {/* Owner/Admin Action Buttons */}
           {canManage && (
             <div className="flex gap-3 mb-4">
               <Link
@@ -162,10 +189,14 @@ export default function ProductDetail() {
             </p>
           )}
 
-          {/* Buy Button */}
+          {/* Purchase Button */}
           {user && !isOwner ? (
-            <button className="w-full bg-indigo-600 text-white rounded-xl py-3.5 font-medium hover:bg-indigo-700 transition-colors">
-              Purchase with Escrow Protection
+            <button
+              onClick={handlePurchase}
+              disabled={purchasing}
+              className="w-full bg-indigo-600 text-white rounded-xl py-3.5 font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
+            >
+              {purchasing ? 'Initiating Escrow…' : 'Purchase with Escrow Protection'}
             </button>
           ) : !user ? (
             <Link
@@ -174,6 +205,8 @@ export default function ProductDetail() {
             >
               Sign in to Purchase
             </Link>
+          ) : isOwner ? (
+            <p className="text-center text-sm text-gray-400 mt-2">This is your listing</p>
           ) : null}
         </div>
       </div>
