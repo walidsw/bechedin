@@ -6,6 +6,7 @@ import authRoutes from './routes/auth';
 import listingRoutes from './routes/listings';
 import escrowRoutes from './routes/escrow';
 import nidRoutes from './routes/nid';
+import paymentRoutes from './routes/payment';
 
 dotenv.config();
 
@@ -37,6 +38,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/listings', listingRoutes);
 app.use('/api/escrow', escrowRoutes);
 app.use('/api/nid', nidRoutes);
+app.use('/api/payment', paymentRoutes);
 
 // 404 handler
 app.use((_req, res) => {

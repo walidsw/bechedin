@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../lib/auth-context';
@@ -33,16 +33,31 @@ const STATUS_INDEX: Record<OrderStatus, number> = {
   pending: 0, paid: 1, shipped: 2, delivered: 3, completed: 4, cancelled: -1,
 };
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 export default function EscrowDashboard() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const { user, isAdmin } = useAuth();
   const [order, setOrder] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [paymentMsg, setPaymentMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const isBuyer = user && order && user.uid === order.buyerId;
   const isSeller = user && order && user.uid === order.sellerId;
   const canManageOrder = isBuyer || isSeller || isAdmin;
+
+  useEffect(() => {
+    const paymentStatus = searchParams.get('payment');
+    if (paymentStatus === 'success') {
+      setPaymentMsg({ type: 'success', text: 'Payment successful! Funds are now held in escrow.' });
+    } else if (paymentStatus === 'failed') {
+      setPaymentMsg({ type: 'error', text: 'Payment failed. Please try again.' });
+    } else if (paymentStatus === 'cancelled') {
+      setPaymentMsg({ type: 'error', text: 'Payment was cancelled.' });
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -59,7 +74,7 @@ export default function EscrowDashboard() {
       }
     };
     fetchOrder();
-  }, [id]);
+  }, [id, searchParams]);
 
   const updateStatus = async (newStatus: OrderStatus) => {
     if (!id) return;
@@ -70,6 +85,28 @@ export default function EscrowDashboard() {
     } catch (err: any) {
       alert(err.message || 'Failed to update');
     } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handlePay = async () => {
+    if (!id) return;
+    setUpdating(true);
+    try {
+      const res = await fetch(`${API_URL}/api/payment/init`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: id }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || 'Failed to initiate payment');
+        setUpdating(false);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to connect to payment server');
       setUpdating(false);
     }
   };
@@ -110,7 +147,15 @@ export default function EscrowDashboard() {
         <ArrowLeft size={16} /> Back to home
       </Link>
 
-      {/* Header */}
+      {paymentMsg && (
+        <div className={`rounded-xl px-5 py-4 mb-6 flex items-center gap-3 ${
+          paymentMsg.type === 'success' ? 'bg-green-50 border border-green-100 text-green-700' : 'bg-red-50 border border-red-100 text-red-700'
+        }`}>
+          {paymentMsg.type === 'success' ? <CheckCircle size={20} /> : <XCircle size={20} />}
+          {paymentMsg.text}
+        </div>
+      )}
+
       <div className="flex items-center gap-3 mb-6">
         <ShieldCheck className="text-indigo-600" size={28} />
         <div>
@@ -119,7 +164,6 @@ export default function EscrowDashboard() {
         </div>
       </div>
 
-      {/* Product Card */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-6">
         <div className="flex items-center gap-4">
           <div className="w-20 h-20 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
@@ -138,7 +182,6 @@ export default function EscrowDashboard() {
         </div>
       </div>
 
-      {/* Buyer / Seller Info */}
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-100 p-4">
           <p className="text-xs text-gray-400 mb-2">Buyer</p>
@@ -170,14 +213,12 @@ export default function EscrowDashboard() {
         </div>
       </div>
 
-      {/* Status / Cancelled Banner */}
       {isCancelled && (
         <div className="bg-red-50 border border-red-100 text-red-700 rounded-xl px-5 py-4 mb-6 flex items-center gap-3">
           <XCircle size={20} /> This order has been cancelled.
         </div>
       )}
 
-      {/* Progress Steps */}
       {!isCancelled && (
         <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
           <h2 className="text-sm font-semibold text-gray-700 mb-4">Order Progress</h2>
@@ -207,21 +248,18 @@ export default function EscrowDashboard() {
         </div>
       )}
 
-      {/* Action Buttons */}
       {!isCancelled && (
         <div className="space-y-3">
-          {/* Buyer: Pay */}
           {isBuyer && order.status === 'pending' && (
             <button
-              onClick={() => updateStatus('paid')}
+              onClick={handlePay}
               disabled={updating}
               className="w-full bg-indigo-600 text-white rounded-xl py-3 font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
             >
-              {updating ? 'Processing…' : '💳 Pay ৳' + order.priceBdt?.toLocaleString() + ' (Held in Escrow)'}
+              {updating ? 'Redirecting to Payment…' : '💳 Pay ৳' + order.priceBdt?.toLocaleString() + ' (bKash / Nagad / Card)'}
             </button>
           )}
 
-          {/* Seller: Mark Shipped */}
           {isSeller && order.status === 'paid' && (
             <button
               onClick={() => updateStatus('shipped')}
@@ -232,7 +270,6 @@ export default function EscrowDashboard() {
             </button>
           )}
 
-          {/* Buyer: Confirm Delivery */}
           {isBuyer && order.status === 'shipped' && (
             <button
               onClick={() => updateStatus('delivered')}
@@ -243,7 +280,6 @@ export default function EscrowDashboard() {
             </button>
           )}
 
-          {/* Buyer: Release Payment (complete) */}
           {isBuyer && order.status === 'delivered' && (
             <button
               onClick={() => updateStatus('completed')}
@@ -260,7 +296,6 @@ export default function EscrowDashboard() {
             </div>
           )}
 
-          {/* Cancel option for buyer or admin */}
           {(isBuyer || isAdmin) && ['pending', 'paid'].includes(order.status) && (
             <button
               onClick={() => {
