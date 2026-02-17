@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth-context';
-import { LogOut, Plus, Menu, X, Shield } from 'lucide-react';
+import { LogOut, Plus, Menu, X, Shield, Package } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Navbar() {
@@ -49,6 +49,9 @@ export default function Navbar() {
                   <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">ADMIN</span>
                 )}
               </div>
+              <Link to="/my-listings" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors inline-flex items-center gap-1">
+                <Package size={14} /> My Listings
+              </Link>
               <Link
                 to="/post-ad"
                 className="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
@@ -100,6 +103,7 @@ export default function Navbar() {
                   ⚡ Admin Panel
                 </Link>
               )}
+              <Link to="/my-listings" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-gray-700">📦 My Listings</Link>
               <Link to="/post-ad" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-indigo-600">+ Post Ad</Link>
               <button onClick={handleLogout} className="block py-2 text-sm text-red-600">Sign Out</button>
             </>

@@ -11,6 +11,7 @@ import EscrowDashboard from './pages/EscrowDashboard'
 import PostAdPage from './pages/PostAdPage'
 import EditListingPage from './pages/EditListingPage'
 import AdminPanel from './pages/AdminPanel'
+import MyListings from './pages/MyListings'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -25,6 +26,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/post-ad" element={<PostAdPage />} />
             <Route path="/edit/:id" element={<EditListingPage />} />
             <Route path="/admin" element={<AdminPanel />} />
+            <Route path="/my-listings" element={<MyListings />} />
           </Route>
         </Routes>
       </BrowserRouter>
