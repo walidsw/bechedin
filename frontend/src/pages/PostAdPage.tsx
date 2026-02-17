@@ -1,156 +1,179 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '../components/ui/Button';
-import { Camera, Tag, MapPin, DollarSign } from 'lucide-react';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { useAuth } from '../lib/auth-context';
+import { Camera, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
-const CATEGORIES = [
-  { id: 1, name: 'Mobile Phones' },
-  { id: 2, name: 'Tablets' },
-  { id: 3, name: 'Laptops' },
-  { id: 4, name: 'Vehicles' },
-  { id: 5, name: 'Electronics' },
-  { id: 6, name: 'Furniture' },
-  { id: 7, name: 'Books' },
-  { id: 8, name: 'Fashion' },
-];
+const CATEGORIES = ['Phones', 'Laptops', 'Electronics', 'Vehicles', 'Fashion', 'Furniture', 'Appliances', 'Other'];
+const LOCATIONS = ['Dhaka', 'Chittagong', 'Sylhet', 'Rajshahi', 'Khulna', 'Barisal', 'Rangpur', 'Mymensingh'];
+const CONDITIONS = ['Brand New', 'Like New', 'Excellent', 'Good', 'Fair'];
 
-const LOCATIONS = [
-  { id: 1, name: 'Dhaka' },
-  { id: 2, name: 'Chittagong' },
-  { id: 3, name: 'Sylhet' },
-  { id: 4, name: 'Rajshahi' },
-  { id: 5, name: 'Khulna' },
-];
-
-export function PostAdPage() {
+export default function PostAdPage() {
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    priceBdt: '',
-    categoryId: 1,
-    locationId: 1,
-    condition: 'Used - Good',
-  });
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [priceBdt, setPriceBdt] = useState('');
+  const [category, setCategory] = useState('');
+  const [location, setLocation] = useState('');
+  const [condition, setCondition] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  if (!user) {
+    return (
+      <div className="max-w-md mx-auto text-center py-20 px-4">
+        <h2 className="text-xl font-bold mb-2">Sign in to post an ad</h2>
+        <p className="text-gray-500 mb-4">You need an account to sell items on Bechedin.</p>
+        <Link to="/auth" className="inline-flex bg-indigo-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">
+          Sign In
+        </Link>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    // Simulate posting
-    setTimeout(() => {
-      setLoading(false);
-      navigate('/');
-    }, 1500);
+    if (!title || !priceBdt || !category || !location || !condition) {
+      setError('Please fill all required fields');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      const docRef = await addDoc(collection(db, 'listings'), {
+        title,
+        description,
+        priceBdt: Number(priceBdt),
+        category,
+        location,
+        condition,
+        imageUrl: imageUrl || '',
+        sellerId: user.uid,
+        sellerName: user.displayName || user.email || 'Anonymous',
+        sellerPhoto: user.photoURL || '',
+        createdAt: serverTimestamp(),
+      });
+      navigate(`/products/${docRef.id}`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to post listing');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div className="max-w-2xl mx-auto animate-fade-in">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Post an Ad</h1>
-      <p className="text-gray-500 mb-8">List your item for sale with escrow protection</p>
+    <div className="max-w-2xl mx-auto px-4 py-8">
+      <Link to="/" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-6">
+        <ArrowLeft size={16} /> Back to listings
+      </Link>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Photo Upload */}
-        <div className="glass-card p-6">
-          <h2 className="font-semibold text-gray-900 mb-4">Photos</h2>
-          <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-primary-400 transition-colors cursor-pointer">
-            <Camera className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-sm text-gray-500">Click to upload photos</p>
-            <p className="text-xs text-gray-400 mt-1">PNG, JPG up to 5MB each</p>
-          </div>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Post a New Ad</h1>
+
+      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+          <input
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="e.g. iPhone 14 Pro Max 256GB"
+            required
+            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
         </div>
 
-        {/* Details */}
-        <div className="glass-card p-6 space-y-5">
-          <h2 className="font-semibold text-gray-900 mb-2">Details</h2>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            placeholder="Describe your item — condition, what's included, why you're selling..."
+            rows={4}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+          />
+        </div>
 
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Title</label>
-            <div className="relative">
-              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="e.g. iPhone 14 Pro Max - 256GB"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
-            <textarea
-              placeholder="Describe your item's condition, specifications, and why you're selling..."
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={4}
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm resize-none"
+            <label className="block text-sm font-medium text-gray-700 mb-1">Price (৳) *</label>
+            <input
+              type="number"
+              value={priceBdt}
+              onChange={e => setPriceBdt(e.target.value)}
+              placeholder="e.g. 45000"
+              required
+              min={1}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Price (BDT)</label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="number"
-                  placeholder="৳ 0"
-                  value={formData.priceBdt}
-                  onChange={(e) => setFormData({ ...formData, priceBdt: e.target.value })}
-                  className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-                  required
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Condition</label>
-              <select
-                value={formData.condition}
-                onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-              >
-                <option>Brand New</option>
-                <option>Like New</option>
-                <option>Used - Excellent</option>
-                <option>Used - Good</option>
-                <option>Used - Fair</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Category</label>
-              <select
-                value={formData.categoryId}
-                onChange={(e) => setFormData({ ...formData, categoryId: Number(e.target.value) })}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-              >
-                {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Location</label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <select
-                  value={formData.locationId}
-                  onChange={(e) => setFormData({ ...formData, locationId: Number(e.target.value) })}
-                  className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-                >
-                  {LOCATIONS.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                </select>
-              </div>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Condition *</label>
+            <select
+              value={condition}
+              onChange={e => setCondition(e.target.value)}
+              required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+            >
+              <option value="">Select</option>
+              {CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
         </div>
 
-        <Button type="submit" size="lg" className="w-full gradient-primary border-0" isLoading={loading}>
-          Publish Listing
-        </Button>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+            <select
+              value={category}
+              onChange={e => setCategory(e.target.value)}
+              required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+            >
+              <option value="">Select</option>
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Location *</label>
+            <select
+              value={location}
+              onChange={e => setLocation(e.target.value)}
+              required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+            >
+              <option value="">Select</option>
+              {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            <Camera size={14} className="inline mr-1" /> Image URL
+          </label>
+          <input
+            type="url"
+            value={imageUrl}
+            onChange={e => setImageUrl(e.target.value)}
+            placeholder="https://example.com/photo.jpg"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <p className="text-xs text-gray-400 mt-1">Paste a link to your product image</p>
+        </div>
+
+        {error && <div className="bg-red-50 text-red-600 text-sm px-3 py-2 rounded-lg">{error}</div>}
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full bg-indigo-600 text-white rounded-lg px-4 py-3 text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
+        >
+          {submitting ? 'Publishing...' : 'Publish Listing'}
+        </button>
       </form>
     </div>
   );

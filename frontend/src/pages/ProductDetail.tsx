@@ -1,143 +1,140 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { MapPin, Shield, UserCheck } from 'lucide-react';
-import { TrustBadge } from '../components/ui/TrustBadge';
-import { Button } from '../components/ui/Button';
-import { EscrowOnboardingModal } from '../components/EscrowOnboardingModal';
-import { listingsApi } from '../lib/api';
+import { useParams, Link } from 'react-router-dom';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { useAuth } from '../lib/auth-context';
+import { ShieldCheck, MapPin, ArrowLeft, Tag } from 'lucide-react';
 
-const FALLBACK = {
-  id: 'listing-001',
-  title: 'iPhone 14 Pro Max - Deep Purple - 256GB',
-  priceBdt: 115000,
-  description: 'Used for 6 months. Battery health 94%. Comes with original box and cable. No scratches. Selling because I upgraded.',
-  images: ['https://images.unsplash.com/photo-1678685888221-cda773a3dcdb?auto=format&fit=crop&q=80&w=1000'],
-  attributes: { Brand: 'Apple', Model: 'iPhone 14 Pro Max', Storage: '256GB', Condition: 'Used - Good', 'Battery Health': '94%' },
-  seller: { name: 'Rahim Ahmed', isNidVerified: true, joined: 'Jan 2023' },
-};
+interface ListingData {
+  title: string;
+  description: string;
+  priceBdt: number;
+  category: string;
+  location: string;
+  condition: string;
+  imageUrl: string;
+  sellerId: string;
+  sellerName: string;
+  sellerPhoto: string;
+}
 
-export function ProductDetail() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [listing, setListing] = useState<any>(null);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+export default function ProductDetail() {
+  const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
+  const [listing, setListing] = useState<ListingData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (id) {
-      listingsApi.getById(id)
-        .then(data => setListing(data))
-        .catch(() => setListing(FALLBACK));
-    }
+    const fetchListing = async () => {
+      if (!id) return;
+      try {
+        const snap = await getDoc(doc(db, 'listings', id));
+        if (snap.exists()) {
+          setListing(snap.data() as ListingData);
+        }
+      } catch {
+        // ignore
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchListing();
   }, [id]);
 
-  if (!listing) {
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin" />
+      <div className="text-center py-20">
+        <div className="animate-spin w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full mx-auto" />
       </div>
     );
   }
 
-  const handleBuy = () => {
-    const hasSeenOnboarding = localStorage.getItem('bechedin_onboarded');
-    if (!hasSeenOnboarding) {
-      setShowOnboarding(true);
-    } else {
-      navigate(`/escrow/txn-${Date.now()}`);
-    }
-  };
-
-  const handleOnboardingComplete = () => {
-    localStorage.setItem('bechedin_onboarded', 'true');
-    setShowOnboarding(false);
-    navigate(`/escrow/txn-${Date.now()}`);
-  };
-
-  const attrs = listing.attributes || {};
-  const seller = listing.seller || { name: 'Seller', isNidVerified: false };
+  if (!listing) {
+    return (
+      <div className="text-center py-20">
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Listing not found</h2>
+        <Link to="/" className="text-indigo-600 hover:underline">← Back to listings</Link>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white animate-fade-in">
-      {showOnboarding && <EscrowOnboardingModal onClose={handleOnboardingComplete} />}
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      <Link to="/" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-6">
+        <ArrowLeft size={16} /> Back to listings
+      </Link>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="lg:grid lg:grid-cols-2 lg:gap-x-10 lg:items-start">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Image */}
+        <div className="aspect-square rounded-2xl bg-gray-100 overflow-hidden">
+          {listing.imageUrl ? (
+            <img src={listing.imageUrl} alt={listing.title} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-300 text-lg">No Image</div>
+          )}
+        </div>
 
-          {/* Image */}
-          <div className="rounded-2xl overflow-hidden bg-gray-100 shadow-sm">
-            <img
-              src={listing.images?.[0] || 'https://via.placeholder.com/800x600'}
-              alt={listing.title}
-              className="w-full h-auto object-cover"
-            />
+        {/* Details */}
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-medium">{listing.category}</span>
+            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{listing.condition}</span>
           </div>
 
-          {/* Product Info */}
-          <div className="mt-8 lg:mt-0">
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">{listing.title}</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{listing.title}</h1>
+          <p className="text-3xl font-extrabold text-indigo-600 mb-4">৳{listing.priceBdt?.toLocaleString()}</p>
 
-            <p className="mt-3 text-3xl font-bold gradient-text">৳ {Number(listing.priceBdt).toLocaleString()}</p>
+          <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
+            <MapPin size={14} /> {listing.location}
+          </div>
 
-            {/* Seller Info */}
-            <div className="mt-6 flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
-              <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
-                <UserCheck className="w-5 h-5 text-primary-600" />
-              </div>
-              <div>
-                <p className="font-semibold text-gray-900 text-sm">{seller.name}</p>
-                <p className="text-xs text-gray-500">Member since {seller.joined || '2024'}</p>
-              </div>
-              {seller.isNidVerified && <TrustBadge type="nid" className="ml-auto" />}
-            </div>
-
-            {/* Trust Signals */}
-            <div className="mt-4 flex flex-wrap gap-2">
-              <TrustBadge type="escrow" />
-              <TrustBadge type="inspection" />
-            </div>
-
-            {/* Description */}
-            <div className="mt-6">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">Description</h3>
+          {listing.description && (
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-gray-700 mb-1">Description</h3>
               <p className="text-sm text-gray-600 leading-relaxed">{listing.description}</p>
             </div>
+          )}
 
-            {/* Attributes */}
-            <div className="mt-6">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Details</h3>
-              <div className="grid grid-cols-2 gap-3">
-                {Object.entries(attrs).map(([key, value]) => (
-                  <div key={key} className="bg-gray-50 rounded-lg p-3">
-                    <dt className="text-xs text-gray-400 uppercase tracking-wider">{key}</dt>
-                    <dd className="mt-0.5 text-sm font-medium text-gray-900">{String(value)}</dd>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* CTA */}
-            <div className="mt-8 space-y-4">
-              <div className="bg-primary-50 border border-primary-100 rounded-xl p-4">
-                <div className="flex items-start gap-3">
-                  <Shield className="h-5 w-5 text-primary-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h3 className="text-sm font-semibold text-primary-900">Secure Escrow Transaction</h3>
-                    <p className="mt-1 text-xs text-primary-700 leading-relaxed">
-                      Your money is held safely by Bechedin until you receive and inspect the item. The seller only gets paid after you approve.
-                    </p>
-                  </div>
+          {/* Seller Info */}
+          <div className="bg-gray-50 rounded-xl p-4 mb-6">
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">Seller</h3>
+            <div className="flex items-center gap-3">
+              {listing.sellerPhoto ? (
+                <img src={listing.sellerPhoto} alt="" className="w-10 h-10 rounded-full" />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                  {listing.sellerName?.charAt(0).toUpperCase() || '?'}
                 </div>
-              </div>
-
-              <Button onClick={handleBuy} size="lg" className="w-full gradient-primary border-0 text-base">
-                Purchase with Escrow Protection
-              </Button>
-
-              <p className="text-center text-xs text-gray-400 flex items-center justify-center gap-1">
-                <MapPin className="w-3 h-3" /> Dhaka
-              </p>
+              )}
+              <span className="font-medium text-gray-900">{listing.sellerName}</span>
             </div>
           </div>
+
+          {/* Trust Signals */}
+          <div className="flex flex-wrap gap-2 mb-6">
+            <span className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 px-3 py-1.5 rounded-full">
+              <ShieldCheck size={14} /> Escrow Protected
+            </span>
+            <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full">
+              <Tag size={14} /> 72hr Inspection
+            </span>
+          </div>
+
+          {/* Buy Button */}
+          {user && user.uid !== listing.sellerId ? (
+            <button className="w-full bg-indigo-600 text-white rounded-xl py-3.5 font-medium hover:bg-indigo-700 transition-colors">
+              Purchase with Escrow Protection
+            </button>
+          ) : !user ? (
+            <Link
+              to="/auth"
+              className="block w-full text-center bg-indigo-600 text-white rounded-xl py-3.5 font-medium hover:bg-indigo-700 transition-colors"
+            >
+              Sign in to Purchase
+            </Link>
+          ) : (
+            <p className="text-sm text-gray-400 text-center py-3">This is your listing</p>
+          )}
         </div>
       </div>
     </div>
